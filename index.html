@@ -347,6 +347,10 @@
   /* ---- view-only copy: no on-air controls, no OBS display, no lower-third export ---- */
   #onair,#lowerThirdDisplay,.modal-preview-sticky,#modalDownloadSection,#modalDlNote,
   .controls>div:has(#openDisplay){display:none!important}
+  .controls>div:has(#find){display:none!important}
+  table.players td.name,tbody tr:not(.team){cursor:default!important}
+  tr.deep-hl td{background:#FFF1A8!important}
+  tr.deep-hl td.name{box-shadow:inset 4px 0 0 var(--red)}
   .viewonly-note{font-size:12px;color:var(--dim);margin-top:6px}
 </style>
 </head>
@@ -2668,6 +2672,7 @@ async function openLookupPlayerModal(pid, meta) {
 }
 
 function openGroupModal(groupKey) {
+  return;   // view-only copy: no team/role pop-ups
   const data = groupIndex.get(groupKey);
   if (!data) return;
   if (data.roleLabel) openRoleModal(data);
@@ -2675,6 +2680,7 @@ function openGroupModal(groupKey) {
 }
 
 async function openPlayerModal(pid) {
+  return;   // view-only copy: no player pop-ups
   const row = currentIndex.get(String(pid));
   if (!row) return;
   setModalMode('player');
@@ -4231,13 +4237,18 @@ function openDeepPlayer() {
   if (!DEEP || !DEEP.player || DEEP.playerUsed) return;
   DEEP.playerUsed = true;
   const want = deepNorm(DEEP.player);
-  for (const [pid, row] of currentIndex) {
-    if (deepNorm(row.name) === want) { openPlayerModal(pid); return; }
+  let pid = null;
+  for (const [id, row] of currentIndex) if (deepNorm(row.name) === want) { pid = id; break; }
+  if (!pid) {   // last-name fallback, only when exactly one player in this series matches
+    const last = want.split(' ').pop();
+    const m = [...currentIndex.values()].filter(r => deepNorm(r.name).split(' ').pop() === last);
+    if (m.length === 1) pid = String(m[0].id);
   }
-  // last-name fallback ("Stanton"), only when exactly one player in this series matches
-  const last = want.split(' ').pop();
-  const matches = [...currentIndex.values()].filter(r => deepNorm(r.name).split(' ').pop() === last);
-  if (matches.length === 1) openPlayerModal(String(matches[0].id));
+  if (!pid) return;
+  // view-only copy: highlight the player's row(s) and scroll to the first one
+  const rows = [...document.querySelectorAll(`#out tr[data-pid="${pid}"]`)];
+  rows.forEach(tr => tr.classList.add('deep-hl'));
+  if (rows[0]) setTimeout(() => rows[0].scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
 }
 
 async function loadSeries() {
